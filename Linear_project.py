@@ -1,128 +1,155 @@
 import tkinter as tk
 
-def gaussian_elimination(A, b):
-    n = len(b)
-
-    augmented_matrix = [A[i] + [b[i]] for i in range(n)]
+def gaussian_elimination(A, b, result_text):
+    rows = len(A)
+    cols = len(A[0])
+    augmented = [A[i] + [b[i]] for i in range(rows)]
 
     result_text.config(state='normal')
     result_text.delete(1.0, 'end')
 
-    def print_and_append(text, msg):
+    def print_and_append(msg):
         result_text.insert('end', msg + '\n')
-        text.update_idletasks()
+        result_text.update_idletasks()
 
-    for i in range(n):
-        max_row = i
-        for j in range(i + 1, n):
-            if abs(augmented_matrix[j][i]) > abs(augmented_matrix[max_row][i]):
-                max_row = j
+    pivot_columns = []
+    row = 0
+    for col in range(cols):
+        max_row = row
+        for r in range(row, rows):
+            if abs(augmented[r][col]) > abs(augmented[max_row][col]):
+                max_row = r
 
-        print_and_append(result_text, f"\nStep {i + 1}:")
-        augmented_matrix[i], augmented_matrix[max_row] = augmented_matrix[max_row], augmented_matrix[i]
-        print_and_append(result_text, f"\n(R{i + 1} <--> R{max_row + 1})")
+        if abs(augmented[max_row][col]) < 1e-12:
+            continue
 
-        for row in augmented_matrix:
-            print_and_append(result_text, str(row))
+        augmented[row], augmented[max_row] = augmented[max_row], augmented[row]
+        pivot_columns.append(col)
 
-        pivot = augmented_matrix[i][i]
-        if pivot == 0:
-            # Check if there is a row with all zeros in coefficients (except last column)
-            if all(x == 0 for x in augmented_matrix[i][:n]) and augmented_matrix[i][n] != 0:
-                print_and_append(result_text, f"\nNo solution for this matrix.")
-                result_text.config(state='disabled')
-                return None
+        pivot_val = augmented[row][col]
+        for c in range(col, cols + 1):
+            augmented[row][c] /= pivot_val
 
-            print_and_append(result_text, f"\nInfinite solutions for this matrix.")
-            result_text.config(state='disabled')
-            return None
+        for r in range(rows):
+            if r != row and abs(augmented[r][col]) > 1e-12:
+                factor = augmented[r][col]
+                for c in range(col, cols + 1):
+                    augmented[r][c] -= factor * augmented[row][c]
+        row += 1
 
-        for j in range(i, n + 1):
-            augmented_matrix[i][j] /= pivot
+    inconsistent = False
+    for r in range(rows):
+        if all(abs(augmented[r][c]) < 1e-12 for c in range(cols)) and abs(augmented[r][cols]) > 1e-12:
+            inconsistent = True
+            break
 
-        print_and_append(result_text, f"\n(R{i + 1} / {pivot}) --> R{i + 1}")
+    if inconsistent:
+        print_and_append("No solution exists for this system.")
+        result_text.config(state='disabled')
+        return None
 
-        for row in augmented_matrix:
-            print_and_append(result_text, str(row))
+    free_vars = [i for i in range(cols) if i not in pivot_columns]
+    solution = ["0"] * cols
 
-        for j in range(i + 1, n):
-            factor = augmented_matrix[j][i]
-            for k in range(i, n + 1):
-                augmented_matrix[j][k] -= factor * augmented_matrix[i][k]
+    if len(free_vars) == 0:
+        for i, col in enumerate(pivot_columns):
+            solution[col] = f"{augmented[i][cols]:.4f}"
+        print_and_append("Unique solution:")
+        for i, val in enumerate(solution):
+            print_and_append(f"x{i+1} = {val}")
+    else:
+        print_and_append("Infinite solutions exist. Parametric form:")
+        params = [f"t{i+1}" for i in range(len(free_vars))]
+        free_map = dict(zip(free_vars, params))
 
-            print_and_append(result_text, f"\n({factor} x R{i + 1}) - R{j + 1} --> R{j + 1}")
+        # Back-substitution for dependent variables
+        for i in range(len(pivot_columns)-1, -1, -1):
+            col = pivot_columns[i]
+            val_expr = f"{augmented[i][cols]:.4f}"
+            for j in range(col+1, cols):
+                if j in free_vars:
+                    coeff = -augmented[i][j]
+                    if abs(coeff) > 1e-12:
+                        sign = "+" if coeff >= 0 else "-"
+                        val_expr += f" {sign} {abs(coeff):.4f}*{free_map[j]}"
+            solution[col] = val_expr
 
-            for row in augmented_matrix:
-                print_and_append(result_text, str(row))
+        for idx in range(cols):
+            if idx in free_vars:
+                solution[idx] = free_map[idx]
+            print_and_append(f"x{idx+1} = {solution[idx]}")
 
-    x = [0] * n
-    for i in range(n - 1, -1, -1):
-        x[i] = augmented_matrix[i][n]
-        for j in range(i + 1, n):
-            x[i] -= augmented_matrix[i][j] * x[j]
-
-    print_and_append(result_text, "\nThe Final Augmented Matrix:")
-    for row in augmented_matrix:
-        print_and_append(result_text, str(row))
+    print_and_append("\nFinal Augmented Matrix:")
+    for row in augmented:
+        print_and_append(str(row))
 
     result_text.config(state='disabled')
+    return solution
 
-    return x
-
-def calculate():
+def generate_matrix():
+    global entries, matrix_frame
     rows = int(rows_entry.get())
-    columns = int(columns_entry.get())
+    cols = int(cols_entry.get())
 
+    for widget in matrix_frame.winfo_children():
+        widget.destroy()
+
+    entries = []
+
+    tk.Label(matrix_frame, text="Enter the augmented matrix:").grid(row=0, column=0, columnspan=cols+1)
+
+    for i in range(rows):
+        row_entries = []
+        for j in range(cols + 1):
+            entry = tk.Entry(matrix_frame, width=8)
+            entry.grid(row=i+1, column=j, padx=5, pady=5)
+            row_entries.append(entry)
+        entries.append(row_entries)
+
+def solve():
+    rows = len(entries)
+    cols = len(entries[0]) - 1
     A = []
     b = []
 
-    matrix_text = matrix_textbox.get("1.0", tk.END)
-    matrix_lines = matrix_text.strip().split('\n')
-
     for i in range(rows):
-        row_values = list(map(float, matrix_lines[i].split()))
-        if len(row_values) != columns + 1:
-            result_text.config(state='normal')
-            result_text.delete(1.0, 'end')
-            result_text.insert('end', f"Error in row {i + 1}: Each row must have {columns + 1} values.")
-            result_text.config(state='disabled')
-            return
-        A.append(row_values[:columns])
-        b.append(row_values[columns])
+        row = []
+        for j in range(cols):
+            row.append(float(entries[i][j].get()))
+        A.append(row)
+        b.append(float(entries[i][cols].get()))
 
-    if len(b) != rows:
-        result_text.config(state='normal')
-        result_text.delete(1.0, 'end')
-        result_text.insert('end', "Error: The vector constants must have the same number of rows as the matrix coefficients.")
-        result_text.config(state='disabled')
-    else:
-        solution = gaussian_elimination(A, b)
-        if solution is not None:
-            result_text.config(state='normal')
-            result_text.insert('end', "\nSolution: " + " ".join([f"x{i + 1} = {sol:.4f}," for i, sol in enumerate(solution)]))
-            result_text.config(state='disabled')
+    gaussian_elimination(A, b, result_text)
 
 window = tk.Tk()
 window.title("Gaussian Elimination Calculator")
 
-tk.Label(window, text="Number of Rows In Coefficient Matrix:").grid(row=0, column=0)
+tk.Label(window, text="Number of equations:").grid(row=0, column=0)
 rows_entry = tk.Entry(window)
-rows_entry.grid(row=0, column=1, pady=(10, 10))
+rows_entry.grid(row=0, column=1)
 
-tk.Label(window, text="Number of Columns In Coefficient Matrix:").grid(row=1, column=0)
-columns_entry = tk.Entry(window)
-columns_entry.grid(row=1, column=1, pady=(10, 10))
+tk.Label(window, text="Number of unknowns:").grid(row=1, column=0)
+cols_entry = tk.Entry(window)
+cols_entry.grid(row=1, column=1)
 
-matrix_label = tk.Label(window, text="Enter the matrix")
-matrix_label.grid(row=2, column=0, columnspan=2)
+generate_button = tk.Button(window, text="Generate Matrix", command=generate_matrix)
+generate_button.grid(row=2, column=0, columnspan=2, pady=10)
 
-matrix_textbox = tk.Text(window, height=10, width=50)
-matrix_textbox.grid(row=3, column=0, columnspan=2)
+matrix_frame = tk.Frame(window)
+matrix_frame.grid(row=3, column=0, columnspan=2)
 
-calculate_button = tk.Button(window, text="Calculate", command=calculate)
-calculate_button.grid(row=4, column=0, columnspan=2, pady=(10, 30))
+solve_button = tk.Button(window, text="Solve", command=solve)
+solve_button.grid(row=4, column=0, columnspan=2, pady=10)
 
-result_text = tk.Text(window, height=35, width=100, state="normal")
-result_text.grid(row=5, column=0, columnspan=2)
+result_frame = tk.Frame(window)
+result_frame.grid(row=5, column=0, columnspan=2)
+
+scrollbar = tk.Scrollbar(result_frame)
+scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+result_text = tk.Text(result_frame, height=30, width=100, yscrollcommand=scrollbar.set)
+result_text.pack(side=tk.LEFT)
+
+scrollbar.config(command=result_text.yview)
 
 window.mainloop()
