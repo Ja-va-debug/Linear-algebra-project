@@ -134,6 +134,105 @@ def gaussian_elimination(A, b, result_text):
         return solution_expr
 
 
+
+def compute_inverse():
+    rows = len(entries)
+    cols = len(entries[0]) - 1  # ignore last column (b)
+
+    result_text.config(state='normal')
+    result_text.delete(1.0, 'end')
+
+    if rows != cols:
+        result_text.insert('end', "Matrix must be square to compute inverse.\n")
+        result_text.config(state='disabled')
+        return
+
+#read matrix A only
+    A = []
+    for i in range(rows):
+        row = []
+        for j in range(cols):
+            row.append(float(entries[i][j].get()))
+        A.append(row)
+
+    result_text.insert('end', "Original Matrix A:\n")
+    for row in A:
+        result_text.insert('end', str(row) + "\n")
+
+    # Step 1: determinant
+    result_text.insert('end', "\nStep 1: Compute det(A)\n")
+    det = determinant(A)
+    result_text.insert('end', f"det(A) = {det}\n")
+
+    if abs(det) < 1e-12:
+        result_text.insert('end', "\nMatrix is singular — no inverse exists.\n")
+        result_text.config(state='disabled')
+        return
+
+    # Step 2: Cofactor matrix
+    result_text.insert('end', "\nStep 2: Compute Cofactor Matrix C\n")
+    n = len(A)
+    C = []
+    for i in range(n):
+        row_cof = []
+        for j in range(n):
+            m_ij = minor(A, i, j)
+            det_ij = determinant(m_ij)
+            cof_ij = ((-1)(i+j)) * det_ij
+            row_cof.append(cof_ij)
+            result_text.insert(
+                'end',
+                f"C[{i+1},{j+1}] = (-1)^({i+1}+{j+1}) * det(M_{i+1}{j+1}) = {cof_ij}\n"
+            )
+        C.append(row_cof)
+
+    result_text.insert('end', "\nCofactor Matrix C:\n")
+    for row in C:
+        result_text.insert('end', str(row) + "\n")
+
+    # Step 3: adjoint
+    result_text.insert('end', "\nStep 3: Compute adj(A) = C^T\n")
+    adj = transpose(C)
+    for row in adj:
+        result_text.insert('end', str(row) + "\n")
+
+    # Step 4: inverse
+    result_text.insert('end', "\nStep 4: Compute A^{-1} = (1/det(A)) * adj(A)\n")
+    inv = [[adj[i][j] / det for j in range(n)] for i in range(n)]
+
+    result_text.insert('end', "\nInverse Matrix A^{-1}:\n")
+    for row in inv:
+        result_text.insert('end', str(row) + "\n")
+
+    result_text.config(state='disabled')
+
+
+
+#   Cofactor
+def determinant(matrix):
+    n = len(matrix)
+
+    if n == 1:
+        return matrix[0][0]
+
+    if n == 2:
+        return matrix[0][0]*matrix[1][1] - matrix[0][1]*matrix[1][0]
+
+    det = 0
+    for c in range(n):
+        det += ((-1)**c) * matrix[0][c] * determinant(minor(matrix, 0, c))
+    return det
+
+
+def minor(matrix, i, j):
+    return [row[:j] + row[j+1:] for row in (matrix[:i] + matrix[i+1:])]
+
+
+def transpose(matrix):
+    return [list(row) for row in zip(*matrix)]
+
+
+
 def generate_matrix():
     global entries, matrix_frame
 
@@ -203,11 +302,15 @@ solve_button.grid(row=2, column=1, pady=10)
 clear_button = tk.Button(window, text="Clear All", command=clear_all)
 clear_button.grid(row=2, column=2, padx=10)
 
+
+inverse_button = tk.Button(window, text="Matrix Inverse (Cofactor)", command=compute_inverse)
+inverse_button.grid(row=2, column=3, padx=10)
+
 matrix_frame = tk.Frame(window)
-matrix_frame.grid(row=3, column=0, columnspan=3)
+matrix_frame.grid(row=3, column=0, columnspan=4)
 
 result_frame = tk.Frame(window)
-result_frame.grid(row=5, column=0, columnspan=3)
+result_frame.grid(row=5, column=0, columnspan=4)
 
 scrollbar = tk.Scrollbar(result_frame)
 scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
