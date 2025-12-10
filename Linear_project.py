@@ -37,12 +37,11 @@ def gaussian_elimination(A, b, result_text):
         if max_row != current_row:
             augmented[current_row], augmented[max_row] = augmented[max_row], augmented[current_row]
             print_and_append(f"Swap R{current_row + 1} with R{max_row + 1}")
-            for row_view in augmented:
-                print_and_append(str(row_view))
         else:
             print_and_append(f"Swap R{current_row + 1} with R{max_row + 1}")
-            for row_view in augmented:
-                print_and_append(str(row_view))
+
+        for row_view in augmented:
+            print_and_append(str(row_view))
 
         pivot = augmented[current_row][col]
         print_and_append(f"R{current_row + 1} = R{current_row + 1} / {pivot}")
@@ -59,7 +58,9 @@ def gaussian_elimination(A, b, result_text):
                 if abs(factor) > 1e-12:
                     for c in range(col, cols + 1):
                         augmented[r][c] -= factor * augmented[current_row][c]
-                    print_and_append(f"Eliminate R{r + 1}: R{r + 1} = R{r + 1} - {factor} * R{current_row + 1}")
+                    print_and_append(
+                        f"Eliminate R{r + 1}: R{r + 1} = R{r + 1} - {factor} * R{current_row + 1}"
+                    )
                     for row_view in augmented:
                         print_and_append(str(row_view))
 
@@ -137,7 +138,7 @@ def gaussian_elimination(A, b, result_text):
 
 def compute_inverse():
     rows = len(entries)
-    cols = len(entries[0]) - 1  # ignore last column (b)
+    cols = len(entries[0]) - 1
 
     result_text.config(state='normal')
     result_text.delete(1.0, 'end')
@@ -147,7 +148,6 @@ def compute_inverse():
         result_text.config(state='disabled')
         return
 
-#read matrix A only
     A = []
     for i in range(rows):
         row = []
@@ -159,7 +159,6 @@ def compute_inverse():
     for row in A:
         result_text.insert('end', str(row) + "\n")
 
-    # Step 1: determinant
     result_text.insert('end', "\nStep 1: Compute det(A)\n")
     det = determinant(A)
     result_text.insert('end', f"det(A) = {det}\n")
@@ -169,8 +168,8 @@ def compute_inverse():
         result_text.config(state='disabled')
         return
 
-    # Step 2: Cofactor matrix
     result_text.insert('end', "\nStep 2: Compute Cofactor Matrix C\n")
+
     n = len(A)
     C = []
     for i in range(n):
@@ -178,11 +177,11 @@ def compute_inverse():
         for j in range(n):
             m_ij = minor(A, i, j)
             det_ij = determinant(m_ij)
-            cof_ij = ((-1)(i+j)) * det_ij
+            cof_ij = ((-1)**(i + j)) * det_ij
             row_cof.append(cof_ij)
             result_text.insert(
                 'end',
-                f"C[{i+1},{j+1}] = (-1)^({i+1}+{j+1}) * det(M_{i+1}{j+1}) = {cof_ij}\n"
+                f"C[{i+1},{j+1}] = (-1)^({i+1}+{j+1}) * det(M_{i+1},{j+1}) = {cof_ij}\n"
             )
         C.append(row_cof)
 
@@ -190,13 +189,11 @@ def compute_inverse():
     for row in C:
         result_text.insert('end', str(row) + "\n")
 
-    # Step 3: adjoint
     result_text.insert('end', "\nStep 3: Compute adj(A) = C^T\n")
     adj = transpose(C)
     for row in adj:
         result_text.insert('end', str(row) + "\n")
 
-    # Step 4: inverse
     result_text.insert('end', "\nStep 4: Compute A^{-1} = (1/det(A)) * adj(A)\n")
     inv = [[adj[i][j] / det for j in range(n)] for i in range(n)]
 
@@ -207,8 +204,6 @@ def compute_inverse():
     result_text.config(state='disabled')
 
 
-
-#   Cofactor
 def determinant(matrix):
     n = len(matrix)
 
@@ -301,7 +296,6 @@ solve_button.grid(row=2, column=1, pady=10)
 
 clear_button = tk.Button(window, text="Clear All", command=clear_all)
 clear_button.grid(row=2, column=2, padx=10)
-
 
 inverse_button = tk.Button(window, text="Matrix Inverse (Cofactor)", command=compute_inverse)
 inverse_button.grid(row=2, column=3, padx=10)
